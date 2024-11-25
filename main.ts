@@ -14,13 +14,14 @@ interface MergeDailyNotesSettings {
     stripCodeBlocks: boolean; // Toggle for removing code blocks
 }
 
+// Default plugin settings
 const DEFAULT_SETTINGS: MergeDailyNotesSettings = {
     mergePath: "Merged Notes",
     stripFrontMatter: false,
     stripCodeBlocks: false,
 };
 
-
+// Plugin class 
 export default class MergeDailyNotesPlugin extends Plugin {
 	settings: MergeDailyNotesSettings;
 
@@ -109,6 +110,7 @@ export default class MergeDailyNotesPlugin extends Plugin {
 	}
 }
 
+// Modal for date selection
 class DatePickerModal extends Modal {
 	constructor(app, onSubmit) {
 		super(app);
@@ -183,6 +185,7 @@ class DatePickerModal extends Modal {
 	}
 }
 
+// Plugin settings class 
 class MergeDailyNotesSettingTab extends PluginSettingTab {
     plugin: MergeDailyNotesPlugin;
 
