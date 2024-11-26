@@ -9,25 +9,23 @@ import {
 
 // Plugin settings interface
 interface MergeDailyNotesSettings {
-    mergePath: string; 
-    stripFrontMatter: boolean;
-    stripCodeBlocks: boolean;
-    lastStartDate: string | null; // New property to store the last start date
-    lastEndDate: string | null;   // New property to store the last end date
+	mergePath: string;
+	stripFrontMatter: boolean;
+	stripCodeBlocks: boolean;
+	lastStartDate: string | null; // New property to store the last start date
+	lastEndDate: string | null; // New property to store the last end date
 }
-
 
 // Default plugin settings
 const DEFAULT_SETTINGS: MergeDailyNotesSettings = {
-    mergePath: "Merged Notes",
-    stripFrontMatter: false,
-    stripCodeBlocks: false,
-    lastStartDate: null, // Default to null
-    lastEndDate: null    // Default to null
+	mergePath: "Merged Notes",
+	stripFrontMatter: false,
+	stripCodeBlocks: false,
+	lastStartDate: null, // Default to null
+	lastEndDate: null, // Default to null
 };
 
-
-// Plugin class 
+// Plugin class
 export default class MergeDailyNotesPlugin extends Plugin {
 	settings: MergeDailyNotesSettings;
 
@@ -56,14 +54,21 @@ export default class MergeDailyNotesPlugin extends Plugin {
 	}
 
 	openDatePickerModal() {
-		const defaultStartDate = this.settings.lastStartDate || moment().subtract(7, "days").format("YYYY-MM-DD");
-		const defaultEndDate = this.settings.lastEndDate || moment().format("YYYY-MM-DD");
-	
-		new DatePickerModal(this.app, async (startDate, endDate) => {
-			await this.mergeDailyNotes(startDate, endDate);
-		}, defaultStartDate, defaultEndDate).open();
+		const defaultStartDate =
+			this.settings.lastStartDate ||
+			moment().subtract(7, "days").format("YYYY-MM-DD");
+		const defaultEndDate =
+			this.settings.lastEndDate || moment().format("YYYY-MM-DD");
+
+		new DatePickerModal(
+			this.app,
+			async (startDate, endDate) => {
+				await this.mergeDailyNotes(startDate, endDate);
+			},
+			defaultStartDate,
+			defaultEndDate
+		).open();
 	}
-	
 
 	async mergeDailyNotes(startDate: string, endDate: string) {
 		// Save the selected dates in settings, we want to do this first
@@ -103,7 +108,7 @@ export default class MergeDailyNotesPlugin extends Plugin {
 				let content = await vault.read(file);
 
 				if (this.settings.stripFrontMatter) {
-					content = content.replace(/^---[\s\S]*?---\n/, '');
+					content = content.replace(/^---[\s\S]*?---\n/, "");
 				}
 
 				if (this.settings.stripCodeBlocks) {
@@ -127,45 +132,22 @@ export default class MergeDailyNotesPlugin extends Plugin {
 
 // Modal for date selection
 class DatePickerModal extends Modal {
-    constructor(app: App, private onSubmit: (startDate: string, endDate: string) => void, private defaultStartDate: string, private defaultEndDate: string) {
-        super(app);
-    }
-
+	constructor(
+		app: App,
+		private onSubmit: (startDate: string, endDate: string) => void,
+		private defaultStartDate: string,
+		private defaultEndDate: string
+	) {
+		super(app);
+	}
 
 	onOpen() {
 		const { contentEl } = this;
 
-		// Inject CSS for better styling
-		const styleEl = contentEl.createEl("style");
-		styleEl.textContent = `
-            .date-picker-modal label {
-                display: block;
-                margin-top: 10px;
-                font-weight: bold;
-            }
-            .date-picker-modal input {
-                width: 100%;
-                padding: 5px;
-                margin-bottom: 10px;
-                font-size: 14px;
-            }
-            .date-picker-modal button {
-                width: 100%;
-                padding: 10px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                cursor: pointer;
-                font-size: 16px;
-                border-radius: 5px;
-            }
-            .date-picker-modal button:hover {
-                background-color: #45a049;
-            }
-        `;
+		// Add a class for styling
+		contentEl.addClass("date-picker-modal");
 
 		// Add modal content
-		contentEl.addClass("date-picker-modal");
 		contentEl.createEl("label", { text: "Start Date:" });
 		const startDateInput = contentEl.createEl("input", { type: "date" });
 		startDateInput.value = this.defaultStartDate; // Set default start date
@@ -173,11 +155,6 @@ class DatePickerModal extends Modal {
 		contentEl.createEl("label", { text: "End Date:" });
 		const endDateInput = contentEl.createEl("input", { type: "date" });
 		endDateInput.value = this.defaultEndDate; // Set default end date
-
-		// Set default values for the date inputs
-		//startDateInput.value = moment().subtract(7, "days").format("YYYY-MM-DD"); // Start date: one week prior
-		//endDateInput.value = moment().format("YYYY-MM-DD"); // End date: today
-
 
 		const submitButton = contentEl.createEl("button", {
 			text: "Merge Notes",
@@ -202,58 +179,62 @@ class DatePickerModal extends Modal {
 	}
 }
 
-// Plugin settings class 
+// Plugin settings class
 class MergeDailyNotesSettingTab extends PluginSettingTab {
-    plugin: MergeDailyNotesPlugin;
+	plugin: MergeDailyNotesPlugin;
 
-    constructor(app: App, plugin: MergeDailyNotesPlugin) {
-        super(app, plugin);
-        this.plugin = plugin;
-    }
+	constructor(app: App, plugin: MergeDailyNotesPlugin) {
+		super(app, plugin);
+		this.plugin = plugin;
+	}
 
-    display(): void {
-        const { containerEl } = this;
+	display(): void {
+		const { containerEl } = this;
 
-        containerEl.empty();
+		containerEl.empty();
 
-        containerEl.createEl("h2", { text: "Merge Daily Notes Settings" });
+		containerEl.createEl("h2", { text: "Merge Daily Notes Settings" });
 
-        new Setting(containerEl)
-            .setName("Merge Path")
-            .setDesc("Specify the folder where merged files will be saved.")
-            .addText((text) =>
-                text
-                    .setPlaceholder("Merged Notes")
-                    .setValue(this.plugin.settings.mergePath)
-                    .onChange(async (value) => {
-                        this.plugin.settings.mergePath = value.trim() || "Merged Notes";
-                        await this.plugin.saveSettings();
-                    })
-            );
+		new Setting(containerEl)
+			.setName("Merge Path")
+			.setDesc("Specify the folder where merged files will be saved.")
+			.addText((text) =>
+				text
+					.setPlaceholder("Merged Notes")
+					.setValue(this.plugin.settings.mergePath)
+					.onChange(async (value) => {
+						this.plugin.settings.mergePath =
+							value.trim() || "Merged Notes";
+						await this.plugin.saveSettings();
+					})
+			);
 
-        new Setting(containerEl)
-            .setName("Strip out Front Matter")
-            .setDesc("Remove front matter (YAML block) from each daily note before merging.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.stripFrontMatter)
-                    .onChange(async (value) => {
-                        this.plugin.settings.stripFrontMatter = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
+		new Setting(containerEl)
+			.setName("Strip out Front Matter")
+			.setDesc(
+				"Remove front matter (YAML block) from each daily note before merging."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.stripFrontMatter)
+					.onChange(async (value) => {
+						this.plugin.settings.stripFrontMatter = value;
+						await this.plugin.saveSettings();
+					})
+			);
 
-        new Setting(containerEl)
-            .setName("Strip out Code Blocks")
-            .setDesc("Remove code blocks (```) from each daily note before merging.")
-            .addToggle((toggle) =>
-                toggle
-                    .setValue(this.plugin.settings.stripCodeBlocks)
-                    .onChange(async (value) => {
-                        this.plugin.settings.stripCodeBlocks = value;
-                        await this.plugin.saveSettings();
-                    })
-            );
-    }
+		new Setting(containerEl)
+			.setName("Strip out Code Blocks")
+			.setDesc(
+				"Remove code blocks (```) from each daily note before merging."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.stripCodeBlocks)
+					.onChange(async (value) => {
+						this.plugin.settings.stripCodeBlocks = value;
+						await this.plugin.saveSettings();
+					})
+			);
+	}
 }
-
