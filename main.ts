@@ -9,17 +9,23 @@ import {
 
 // Plugin settings interface
 interface MergeDailyNotesSettings {
-    mergePath: string; // Path where merged files are saved
-    stripFrontMatter: boolean; // Toggle for removing front matter
-    stripCodeBlocks: boolean; // Toggle for removing code blocks
+    mergePath: string; 
+    stripFrontMatter: boolean;
+    stripCodeBlocks: boolean;
+    lastStartDate: string | null; // New property to store the last start date
+    lastEndDate: string | null;   // New property to store the last end date
 }
+
 
 // Default plugin settings
 const DEFAULT_SETTINGS: MergeDailyNotesSettings = {
     mergePath: "Merged Notes",
     stripFrontMatter: false,
     stripCodeBlocks: false,
+    lastStartDate: null, // Default to null
+    lastEndDate: null    // Default to null
 };
+
 
 // Plugin class 
 export default class MergeDailyNotesPlugin extends Plugin {
@@ -50,12 +56,21 @@ export default class MergeDailyNotesPlugin extends Plugin {
 	}
 
 	openDatePickerModal() {
-		new DatePickerModal(this.app, async (startDate: string, endDate: string) => {
+		const defaultStartDate = this.settings.lastStartDate || moment().subtract(7, "days").format("YYYY-MM-DD");
+		const defaultEndDate = this.settings.lastEndDate || moment().format("YYYY-MM-DD");
+	
+		new DatePickerModal(this.app, async (startDate, endDate) => {
 			await this.mergeDailyNotes(startDate, endDate);
-		}).open();
+		}, defaultStartDate, defaultEndDate).open();
 	}
+	
 
 	async mergeDailyNotes(startDate: string, endDate: string) {
+		// Save the selected dates in settings, we want to do this first
+		this.settings.lastStartDate = startDate;
+		this.settings.lastEndDate = endDate;
+		await this.saveSettings();
+
 		const dailyNotesPlugin =
 			this.app.internalPlugins.getPluginById("daily-notes");
 
@@ -112,10 +127,10 @@ export default class MergeDailyNotesPlugin extends Plugin {
 
 // Modal for date selection
 class DatePickerModal extends Modal {
-	constructor(app, onSubmit) {
-		super(app);
-		this.onSubmit = onSubmit; // Callback for handling date selection
-	}
+    constructor(app: App, private onSubmit: (startDate: string, endDate: string) => void, private defaultStartDate: string, private defaultEndDate: string) {
+        super(app);
+    }
+
 
 	onOpen() {
 		const { contentEl } = this;
@@ -153,13 +168,15 @@ class DatePickerModal extends Modal {
 		contentEl.addClass("date-picker-modal");
 		contentEl.createEl("label", { text: "Start Date:" });
 		const startDateInput = contentEl.createEl("input", { type: "date" });
+		startDateInput.value = this.defaultStartDate; // Set default start date
 
 		contentEl.createEl("label", { text: "End Date:" });
 		const endDateInput = contentEl.createEl("input", { type: "date" });
+		endDateInput.value = this.defaultEndDate; // Set default end date
 
 		// Set default values for the date inputs
-		startDateInput.value = moment().subtract(7, "days").format("YYYY-MM-DD"); // Start date: one week prior
-		endDateInput.value = moment().format("YYYY-MM-DD"); // End date: today
+		//startDateInput.value = moment().subtract(7, "days").format("YYYY-MM-DD"); // Start date: one week prior
+		//endDateInput.value = moment().format("YYYY-MM-DD"); // End date: today
 
 
 		const submitButton = contentEl.createEl("button", {
