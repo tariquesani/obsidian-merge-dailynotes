@@ -72,33 +72,38 @@ export default class MergeDailyNotesPlugin extends Plugin {
 			this.settings.mergePath
 		).open();
 	}
-	async mergeDailyNotes(startDate: string, endDate: string, selectedFile: string) {
+	async mergeDailyNotes(
+		startDate: string,
+		endDate: string,
+		selectedFile: string
+	) {
 		// Save the selected dates in settings
 		this.settings.lastStartDate = startDate;
 		this.settings.lastEndDate = endDate;
 		await this.saveSettings();
-	
-		const dailyNotesPlugin = this.app.internalPlugins.getPluginById("daily-notes");
-	
+
+		const dailyNotesPlugin =
+			this.app.internalPlugins.getPluginById("daily-notes");
+
 		if (!dailyNotesPlugin || !dailyNotesPlugin.enabled) {
 			new Notice("Daily Notes plugin is not enabled.");
 			return;
 		}
-	
+
 		const settings = dailyNotesPlugin.instance.options;
 		const folder = settings.folder;
 		const dateFormat = settings.format;
-	
+
 		const start = moment(startDate, "YYYY-MM-DD");
 		const end = moment(endDate, "YYYY-MM-DD");
-	
+
 		const vault = this.app.vault;
 		const mergePath = this.settings.mergePath;
-	
+
 		await vault.createFolder(mergePath).catch(() => {}); // Ensure the folder exists
-	
+
 		let outputFile: TFile | null = null;
-	
+
 		// Handle file selection logic
 		if (selectedFile === "new") {
 			const outputPath = `${mergePath}/${startDate} to ${endDate}.md`;
@@ -110,44 +115,49 @@ export default class MergeDailyNotesPlugin extends Plugin {
 				return;
 			}
 		}
-	
+
 		let currentDate = start.clone();
 		while (currentDate.isSameOrBefore(end)) {
 			const fileName = `${folder}/${currentDate.format(dateFormat)}.md`;
 			const file = vault.getAbstractFileByPath(fileName);
-	
+
 			if (file) {
 				let content = await vault.read(file);
-	
+
 				// Apply stripping settings
 				if (this.settings.stripFrontMatter) {
 					content = content.replace(/^---[\s\S]*?---\n/, "");
 				}
-	
+
 				if (this.settings.stripCodeBlocks) {
 					content = content.replace(/```[\s\S]*?```/g, ""); // Regex for multiline blocks
 				}
-	
+
 				// Append the formatted content to the output file
 				await vault.append(
 					outputFile,
-					`## ${currentDate.format("YYYY-MM-DD")}\n\n${content}\n\n---\n\n`
+					`## ${currentDate.format(
+						"YYYY-MM-DD"
+					)}\n\n${content}\n\n---\n\n`
 				);
 			}
-	
+
 			currentDate.add(1, "days");
 		}
-	
+
 		new Notice(`Daily notes merged and saved to: ${outputFile.path}`);
 	}
-	
 }
 
 // Modal for date selection
 class DatePickerModal extends Modal {
 	constructor(
 		app: App,
-		private onSubmit: (startDate: string, endDate: string, selectedFile: string) => void,
+		private onSubmit: (
+			startDate: string,
+			endDate: string,
+			selectedFile: string
+		) => void,
 		private defaultStartDate: string,
 		private defaultEndDate: string,
 		private mergePath: string
