@@ -5,6 +5,8 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	TFolder,
+	TFile,
 } from "obsidian";
 
 // Plugin settings interface
@@ -62,81 +64,93 @@ export default class MergeDailyNotesPlugin extends Plugin {
 
 		new DatePickerModal(
 			this.app,
-			async (startDate, endDate) => {
-				await this.mergeDailyNotes(startDate, endDate);
+			async (startDate, endDate, selectedFile) => {
+				await this.mergeDailyNotes(startDate, endDate, selectedFile);
 			},
 			defaultStartDate,
-			defaultEndDate
+			defaultEndDate,
+			this.settings.mergePath
 		).open();
 	}
-
-	async mergeDailyNotes(startDate: string, endDate: string) {
-		// Save the selected dates in settings, we want to do this first
+	async mergeDailyNotes(startDate: string, endDate: string, selectedFile: string) {
+		// Save the selected dates in settings
 		this.settings.lastStartDate = startDate;
 		this.settings.lastEndDate = endDate;
 		await this.saveSettings();
-
-		const dailyNotesPlugin =
-			this.app.internalPlugins.getPluginById("daily-notes");
-
+	
+		const dailyNotesPlugin = this.app.internalPlugins.getPluginById("daily-notes");
+	
 		if (!dailyNotesPlugin || !dailyNotesPlugin.enabled) {
 			new Notice("Daily Notes plugin is not enabled.");
 			return;
 		}
-
+	
 		const settings = dailyNotesPlugin.instance.options;
 		const folder = settings.folder;
 		const dateFormat = settings.format;
-
+	
 		const start = moment(startDate, "YYYY-MM-DD");
 		const end = moment(endDate, "YYYY-MM-DD");
-
+	
 		const vault = this.app.vault;
-
-		const outputPath = `${this.settings.mergePath}/${startDate} to ${endDate}.md`;
-		await vault.createFolder(this.settings.mergePath).catch(() => {}); // Ensure the folder exists
-
-		const outputFile = await vault.create(outputPath, ""); // Create the file incrementally
-
+		const mergePath = this.settings.mergePath;
+	
+		await vault.createFolder(mergePath).catch(() => {}); // Ensure the folder exists
+	
+		let outputFile: TFile | null = null;
+	
+		// Handle file selection logic
+		if (selectedFile === "new") {
+			const outputPath = `${mergePath}/${startDate} to ${endDate}.md`;
+			outputFile = await vault.create(outputPath, ""); // Create a new file
+		} else {
+			outputFile = vault.getAbstractFileByPath(selectedFile) as TFile;
+			if (!outputFile) {
+				new Notice("Selected file not found. Please try again.");
+				return;
+			}
+		}
+	
 		let currentDate = start.clone();
-
 		while (currentDate.isSameOrBefore(end)) {
 			const fileName = `${folder}/${currentDate.format(dateFormat)}.md`;
 			const file = vault.getAbstractFileByPath(fileName);
-
+	
 			if (file) {
 				let content = await vault.read(file);
-
+	
+				// Apply stripping settings
 				if (this.settings.stripFrontMatter) {
 					content = content.replace(/^---[\s\S]*?---\n/, "");
 				}
-
+	
 				if (this.settings.stripCodeBlocks) {
-					content = content.replace(/```(?:.|\n)*?```/g, ""); // Corrected regex for multiline code blocks
+					content = content.replace(/```[\s\S]*?```/g, ""); // Regex for multiline blocks
 				}
-
+	
+				// Append the formatted content to the output file
 				await vault.append(
 					outputFile,
-					`## ${currentDate.format(
-						"YYYY-MM-DD"
-					)}\n\n${content}\n\n---\n\n`
+					`## ${currentDate.format("YYYY-MM-DD")}\n\n${content}\n\n---\n\n`
 				);
 			}
-
+	
 			currentDate.add(1, "days");
 		}
-
-		new Notice(`Daily notes merged and saved to: ${outputPath}`);
+	
+		new Notice(`Daily notes merged and saved to: ${outputFile.path}`);
 	}
+	
 }
 
 // Modal for date selection
 class DatePickerModal extends Modal {
 	constructor(
 		app: App,
-		private onSubmit: (startDate: string, endDate: string) => void,
+		private onSubmit: (startDate: string, endDate: string, selectedFile: string) => void,
 		private defaultStartDate: string,
-		private defaultEndDate: string
+		private defaultEndDate: string,
+		private mergePath: string
 	) {
 		super(app);
 	}
@@ -156,19 +170,47 @@ class DatePickerModal extends Modal {
 		const endDateInput = contentEl.createEl("input", { type: "date" });
 		endDateInput.value = this.defaultEndDate; // Set default end date
 
+		// Dropdown for file selection
+		contentEl.createEl("label", { text: "Select Output File:" });
+		const fileSelect = contentEl.createEl("select");
+
+		// Add "Create New File" as the first option
+		fileSelect.createEl("option", {
+			text: "Create New File",
+			value: "new",
+		});
+
+		// Populate the dropdown with files from mergePath
+		const outputFolder = this.app.vault.getAbstractFileByPath(
+			this.mergePath
+		);
+		if (outputFolder && outputFolder instanceof TFolder) {
+			for (const file of outputFolder.children) {
+				if (file instanceof TFile && file.extension === "md") {
+					fileSelect.createEl("option", {
+						text: file.name,
+						value: file.path,
+					});
+				}
+			}
+		} else {
+			new Notice("Output folder not found or empty.");
+		}
+
 		const submitButton = contentEl.createEl("button", {
 			text: "Merge Notes",
 		});
 		submitButton.addEventListener("click", () => {
 			const startDate = startDateInput.value;
 			const endDate = endDateInput.value;
+			const selectedFile = fileSelect.value;
 
 			if (!startDate || !endDate || startDate > endDate) {
 				new Notice("Invalid date range. Please try again.");
 				return;
 			}
 
-			this.onSubmit(startDate, endDate); // Pass dates to callback
+			this.onSubmit(startDate, endDate, selectedFile); // Pass dates to callback
 			this.close(); // Close the modal
 		});
 	}
